@@ -1,12 +1,16 @@
-﻿using Microsoft.AspNetCore.Authentication.Cookies;
+﻿using IdentityModel;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.Net.Http.Headers;
 using System;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace ImageGallery.Client
 {
@@ -17,6 +21,7 @@ namespace ImageGallery.Client
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
+            JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
         }
 
         // This method gets called by the runtime. Use this method to add services to the container.
@@ -33,12 +38,23 @@ namespace ImageGallery.Client
                     client.DefaultRequestHeaders.Add(HeaderNames.Accept, "application/json");
                 });
 
+            // create an HttpClient used for accessing the IDP 
+            services.AddHttpClient("IDPClient", client =>
+            {
+                client.BaseAddress = new Uri("https://localhost:44318/");
+                client.DefaultRequestHeaders.Clear();
+                client.DefaultRequestHeaders.Add(HeaderNames.Accept, "application/json");
+            });
+
             services.AddAuthentication(options =>
                 {
                     options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
                     options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
                 })
-                .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme)
+                .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
+                {
+                    options.AccessDeniedPath = "/Authorization/AccessDenied";
+                })
                 .AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
                 {
                     options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
@@ -47,11 +63,40 @@ namespace ImageGallery.Client
                     options.ResponseType = "code";
                     options.UsePkce = true;
                     // options.CallbackPath = new PathString("...");
-                    options.Scope.Add("openid");
-                    options.Scope.Add("profile");
+
+                    // These 2 aren't necessary because are added by default
+                    //options.Scope.Add("openid");
+                    //options.Scope.Add("profile");
+                    options.Scope.Add("address");
+                    options.Scope.Add("roles");
+
                     options.SaveTokens = true;
                     options.ClientSecret = "secret";
                     options.GetClaimsFromUserInfoEndpoint = true;
+
+                    // This will make sure that the filter that filters out 
+                    // nbf filter is removed and the nbf claim stays.
+                    // This is for demo purposes. We don't really need the "nbf" or "not before" claim.
+                    //options.ClaimActions.Remove("nbf");
+
+                    // Remove claims that we do not need.
+                    options.ClaimActions.DeleteClaim("sid");
+                    options.ClaimActions.DeleteClaim("idp");
+                    options.ClaimActions.DeleteClaim("s_hash");
+                    options.ClaimActions.DeleteClaim("auth_time");
+
+                    // Add mappings
+                    options.ClaimActions.MapUniqueJsonKey("role", "role");
+
+                    options.TokenValidationParameters = new TokenValidationParameters()
+                    {
+                        NameClaimType = JwtClaimTypes.GivenName,
+                        RoleClaimType = JwtClaimTypes.Role
+                    };
+
+                    // We don't need this delete action because address isn't mapped by default.
+                    //options.ClaimActions.DeleteClaim("address");
+
                 });
         }
 
