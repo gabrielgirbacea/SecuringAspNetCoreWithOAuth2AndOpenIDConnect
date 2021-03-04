@@ -19,7 +19,6 @@ namespace Marvin.IDP
                 new IdentityResource("roles", "Your role(s)", new List<string>(){ "role" }),
                 new IdentityResource("country", "The country you're living in", new List<string>(){ "country" }),
                 new IdentityResource("subscriptionlevel", "Your subscription level", new List<string>(){ "subscriptionlevel" }),
-
             };
 
         public static IEnumerable<ApiScope> ApiScopes =>
@@ -38,6 +37,9 @@ namespace Marvin.IDP
             new Client[]
             {
                 new Client() {
+                    AccessTokenLifetime = 120,
+                    AllowOfflineAccess = true,
+                    UpdateAccessTokenClaimsOnRefresh = true,
                     ClientName = "Image Gallery",
                     ClientId = "imagegalleryclient",
                     AllowedGrantTypes = GrantTypes.Code,
