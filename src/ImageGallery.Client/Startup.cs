@@ -31,6 +31,18 @@ namespace ImageGallery.Client
             services.AddControllersWithViews()
                  .AddJsonOptions(opts => opts.JsonSerializerOptions.PropertyNamingPolicy = null);
 
+            services.AddAuthorization(authorizationOptions =>
+            {
+                authorizationOptions.AddPolicy(
+                    "CanOrderFrame",
+                    policyBuilder =>
+                    {
+                        policyBuilder.RequireAuthenticatedUser();
+                        policyBuilder.RequireClaim("country", "be");
+                        policyBuilder.RequireClaim("subscriptionlevel", "PayingUser");
+                    });
+            });
+
             services.AddHttpContextAccessor();
 
             services.AddTransient<BearerTokenHandler>();
@@ -53,61 +65,65 @@ namespace ImageGallery.Client
             });
 
             services.AddAuthentication(options =>
+            {
+                options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
+            })
+            .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
+            {
+                options.AccessDeniedPath = "/Authorization/AccessDenied";
+            })
+            .AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
+            {
+                options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                options.Authority = "https://localhost:44318/";
+                options.ClientId = "imagegalleryclient";
+                options.ResponseType = "code";
+                options.UsePkce = true;
+                // options.CallbackPath = new PathString("...");
+
+                // These 2 aren't necessary because are added by default
+                //options.Scope.Add("openid");
+                //options.Scope.Add("profile");
+                options.Scope.Add("address");
+                options.Scope.Add("roles");
+                options.Scope.Add("imagegalleryapi");
+                options.Scope.Add("subscriptionlevel");
+                options.Scope.Add("country");
+
+                options.SaveTokens = true;
+                options.ClientSecret = "secret";
+                options.GetClaimsFromUserInfoEndpoint = true;
+
+                // This will make sure that the filter that filters out 
+                // nbf filter is removed and the nbf claim stays.
+                // This is for demo purposes. We don't really need the "nbf" or "not before" claim.
+                //options.ClaimActions.Remove("nbf");
+
+                // Remove claims that we do not need.
+                options.ClaimActions.DeleteClaim("sid");
+                options.ClaimActions.DeleteClaim("idp");
+                options.ClaimActions.DeleteClaim("s_hash");
+                options.ClaimActions.DeleteClaim("auth_time");
+
+                // Add mappings
+                options.ClaimActions.MapUniqueJsonKey("role", "role");
+                options.ClaimActions.MapUniqueJsonKey("subscriptionlevel", "subscriptionlevel");
+                options.ClaimActions.MapUniqueJsonKey("country", "country");
+
+                options.TokenValidationParameters = new TokenValidationParameters()
                 {
-                    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-                    options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
-                })
-                .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
-                {
-                    options.AccessDeniedPath = "/Authorization/AccessDenied";
-                })
-                .AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
-                {
-                    options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-                    options.Authority = "https://localhost:44318/";
-                    options.ClientId = "imagegalleryclient";
-                    options.ResponseType = "code";
-                    options.UsePkce = true;
-                    // options.CallbackPath = new PathString("...");
+                    NameClaimType = JwtClaimTypes.GivenName,
+                    RoleClaimType = JwtClaimTypes.Role
+                };
 
-                    // These 2 aren't necessary because are added by default
-                    //options.Scope.Add("openid");
-                    //options.Scope.Add("profile");
-                    options.Scope.Add("address");
-                    options.Scope.Add("roles");
-                    options.Scope.Add("imagegalleryapi");
+                // We don't need this delete action because address isn't mapped by default.
+                //options.ClaimActions.DeleteClaim("address");
 
-                    options.SaveTokens = true;
-                    options.ClientSecret = "secret";
-                    options.GetClaimsFromUserInfoEndpoint = true;
-
-                    // This will make sure that the filter that filters out 
-                    // nbf filter is removed and the nbf claim stays.
-                    // This is for demo purposes. We don't really need the "nbf" or "not before" claim.
-                    //options.ClaimActions.Remove("nbf");
-
-                    // Remove claims that we do not need.
-                    options.ClaimActions.DeleteClaim("sid");
-                    options.ClaimActions.DeleteClaim("idp");
-                    options.ClaimActions.DeleteClaim("s_hash");
-                    options.ClaimActions.DeleteClaim("auth_time");
-
-                    // Add mappings
-                    options.ClaimActions.MapUniqueJsonKey("role", "role");
-
-                    options.TokenValidationParameters = new TokenValidationParameters()
-                    {
-                        NameClaimType = JwtClaimTypes.GivenName,
-                        RoleClaimType = JwtClaimTypes.Role
-                    };
-
-                    // We don't need this delete action because address isn't mapped by default.
-                    //options.ClaimActions.DeleteClaim("address");
-
-                    // TODO: To be deleted. 
-                    // Added just to always prompt consent.
-                    options.Prompt = "consent";
-                });
+                // TODO: To be deleted. 
+                // Added just to always prompt consent.
+                options.Prompt = "consent";
+            });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

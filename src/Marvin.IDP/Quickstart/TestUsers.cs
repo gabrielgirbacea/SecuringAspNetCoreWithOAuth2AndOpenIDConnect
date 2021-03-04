@@ -26,6 +26,8 @@ namespace IdentityServerHost.Quickstart.UI
                     new Claim(JwtClaimTypes.FamilyName, "Underwood"),
                     new Claim(JwtClaimTypes.Address, "Main Street 1"),
                     new Claim(JwtClaimTypes.Role, "FreeUser"),
+                    new Claim("subscriptionlevel", "FreeUser"),
+                    new Claim("country", "nl"),
                 }
             },
             new TestUser
@@ -39,6 +41,8 @@ namespace IdentityServerHost.Quickstart.UI
                     new Claim(JwtClaimTypes.FamilyName, "Underwood"),
                     new Claim(JwtClaimTypes.Address, "Big Street 2"),
                     new Claim(JwtClaimTypes.Role, "PayingUser"),
+                    new Claim("subscriptionlevel", "PayingUser"),
+                    new Claim("country", "be"),
                 }
             }
         };
